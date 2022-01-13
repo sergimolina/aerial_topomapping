@@ -1,0 +1,16 @@
+<launch>
+    
+    <arg name="pcd_file" default="/home/sergi/datasets/bacchus/UAV/ktima_gerovassiliou/field_60/ktima_Gerovasileioy_2020-07-21_Field_60_10cm.pcd" />
+
+    <node pkg="pcl_ros" type="pcd_to_pointcloud" name="spawn_pcd_to_pcl" output="screen" args ="$(arg pcd_file) 10">
+        <param name="frame_id" value="/map" />
+        <param name="resolution" value="0.1" />
+        <remap from="cloud_pcd" to="cloud_in" />
+    </node>
+
+    <!--
+  <node pkg="octomap_server" type="octomap_tracking_server_node" name="octomap_tracking_server_node" output="screen" />
+
+-->
+    <!-- rosrun octomap_server octomap_saver -f ~/mapfile.ot -->
+</launch>
