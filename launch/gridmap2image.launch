@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<launch>
+  <arg name="grid_map_topic"          default="/grid_map"/>
+  <arg name="output_image_file"       default="$(find aerial_topomapping)/data/output_images/ktima_Gerovasileioy_2020-07-21_Field_60_25cm_nonground_elevation_image.png" />
+   
+  <node name="grid_map_to_image" pkg="grid_map_demos" type="grid_map_to_image_demo" output="screen">
+    <param name="grid_map_topic"   type="string" value="$(arg grid_map_topic)" />
+    <param name="file"             type="string" value="$(arg output_image_file)" />
+  </node>
+</launch>

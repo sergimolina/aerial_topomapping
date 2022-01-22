@@ -3,8 +3,7 @@
 <launch>
   <arg name="folder_path"            default="$(find aerial_topomapping)/data/pointclouds"/>
   <arg name="pcd_filename"           default="ktima_Gerovasileioy_2020-07-21_Field_60_25cm_nonground.pcd" />
-  <!-- <arg name="config_file_path"       default="$(find aerial_topomapping)/config/gridmap/pcd_2_gridmap_param.yaml" /> -->
-  <arg name="config_file_path"       default="$(find grid_map_pcl)/config/parameters.yaml" /> 
+  <arg name="config_file_path"       default="$(find aerial_topomapping)/config/gridmap/pcd_2_gridmap_param.yaml" />
   <arg name="map_rosbag_topic"       default="grid_map" />
   <arg name="output_grid_map"        default="ktima_Gerovasileioy_2020-07-21_Field_60_25cm_nonground_gridmap.bag" />
   <arg name="map_frame"              default="map" />
@@ -12,6 +11,9 @@
   <arg name="prefix"                 default=""/>
   <arg name="set_verbosity_to_debug" default="false"/>
   <arg name="publish_point_cloud"    default="false"/>
+
+  <arg name="grid_map_topic"          default="/grid_map_pcl_loader_node/grid_map_from_raw_pointcloud"/>
+  <arg name="output_image_file"       default="$(find aerial_topomapping)/data/output_images/ktima_Gerovasileioy_2020-07-21_Field_60_25cm_nonground_elevation_image.png"/>
     
   <node name="grid_map_pcl_loader_node" pkg="grid_map_pcl" type="grid_map_pcl_loader_node" output="screen" launch-prefix="$(arg prefix)">
     <rosparam file="$(arg config_file_path)" /> 
@@ -25,5 +27,9 @@
     <param name="set_verbosity_to_debug"  type="bool"   value="$(arg set_verbosity_to_debug)" />
   </node>
 
+  <node name="grid_map_to_image" pkg="grid_map_demos" type="grid_map_to_image_demo" output="screen">
+    <param name="grid_map_topic"   type="string" value="$(arg grid_map_topic)" />
+    <param name="file"             type="string" value="$(arg output_image_file)" />
+  </node>
 
 </launch>

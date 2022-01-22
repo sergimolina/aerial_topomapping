@@ -2,6 +2,6 @@
 <launch>
   <!-- Launch the grid map visualizer -->
   <node pkg="grid_map_visualization" type="grid_map_visualization" name="grid_map_visualization" output="screen">
-    <rosparam command="load" file="$(find cvt_pcd2octomap)/config/gridmap_vis_config.yaml" />
+    <rosparam command="load" file="$(find aerial_topomapping)/config/gridmap/gridmap_vis_config.yaml" />
   </node>
 </launch>

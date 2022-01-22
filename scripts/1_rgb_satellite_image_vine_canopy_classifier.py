@@ -221,7 +221,7 @@ def rgb_to_VARI_index(rgb_image):
 	return VARI_image
 
 #Parameters
-image_file_name = './data/greece_zoom20_23cmpix.jpg'
+image_file_name = './data/input/greece_zoom20_23cmpix.jpg'
 img_resolution = 0.23 # m/pix
 row_separation = 2.5 #meters
 window_times_row = 5 #times
@@ -275,7 +275,7 @@ if compute_segmentation:
 	pixels_count, pixels_times_seen = compute_pixels_count(img_grey, windows_moment, window_size)
 
 	# Apply filter to get a binary image
-	img_bin_org = compute_pixels_count_filter(pixels_count,pixels_times_seen, pixel_count_threshold)
+	img_bin = compute_pixels_count_filter(pixels_count,pixels_times_seen, pixel_count_threshold)
 
 
 if show_plots:
@@ -299,7 +299,7 @@ if show_plots:
 	axes[1].set_title('grey')
 
 	# axes[0,2].set_title('binary')
-	# axes[0,2].imshow(img_bin_org, cmap='gray')
+	# axes[0,2].imshow(img_bin, cmap='gray')
 
 	# axes[1, 0].set_title('counts')
 	# axes[1, 0].imshow(pixels_count, cmap='gray')
