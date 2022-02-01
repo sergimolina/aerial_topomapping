@@ -13,7 +13,7 @@ from skimage.util import img_as_ubyte
 from skimage.morphology import disk,rectangle,square, binary_opening, binary_closing, remove_small_objects
 from skimage.filters import rank
 from skimage.color import rgb2gray
-from skimage.draw import rectangle,polygon_perimeter,line,circle
+from skimage.draw import rectangle,polygon_perimeter,line,circle,polygon
 from skimage import measure, segmentation
 from skimage.transform import probabilistic_hough_line, hough_line, hough_line_peaks
 from skimage.measure import LineModelND, ransac
@@ -28,6 +28,7 @@ from scipy.signal import argrelextrema
 from scipy.spatial import distance
 from scipy.stats import linregress
 
+from shapely.geometry import LineString
 
 def calculate_line_angle(line): #list: [x0,y0,x1,y1]
 	if (line[0]-line[2])==0:
@@ -36,22 +37,33 @@ def calculate_line_angle(line): #list: [x0,y0,x1,y1]
 		line_angle = math.degrees(math.atan(float((line[1]-line[3]))/(line[0]-line[2])))
 	return line_angle
 
+def calculate_line_slope(line): #list: [x0,y0,x1,y1]
+	if (line[0]-line[2])==0:
+		line_slope = 999999
+	else:
+		line_slope = float((line[1]-line[3]))/(line[0]-line[2])
+	return line_slope
+
+
 #Parameters
 #image_file_name = './data/greece_zoom20_23cmpix_binary.png'
 image_file_name = '../data/input/ktima_Gerovasileioy_2020-07-21_Field_60_25cm_nonground_elevation_image_only_rows.png'
 compute_row_lines = True
 show_plots = True
 merge_row_lines = True
-compute_toponodes_locations = False
+compute_toponodes_locations = True
 
 # Read the image
 img_bin_org = io.imread(image_file_name)
 img_bin_org = rgb2gray(img_bin_org)
 print('Original Dimensions : ',img_bin_org.shape) 
 
-img_bin = img_bin_org
+img_bin = img_bin_org.copy()
+img_bin = img_bin > 0
 
-if compute_row_lines==True:
+
+
+if compute_row_lines:
 	print "Computing vine row lines"
 
 	# Divide binary image in clusters by means of connectivity rules
@@ -60,18 +72,18 @@ if compute_row_lines==True:
 	vine_rows = []
 	angle_rows = []
 	vine_rows_full_line = []
-	angle_rows_full_line = []
+	#angle_rows_full_line = []
 
 	print "num_of_clusters:", num_of_clusters
 
 	clusters_to_test = [45,76]
-	for current_cluster in range(1,num_of_clusters):#clusters_to_test:#range(130,131):#num_of_clusters):
+	for current_cluster in range(1,num_of_clusters):#range(1,num_of_clusters):#clusters_to_test:#range(130,131):#num_of_clusters):
 		#print "-------"
 		print "cluster num", current_cluster
 
 		# Compute lines for each cluster
 		xx,yy = np.where(img_labels == current_cluster)
-		img_cluster = np.zeros([img_bin_org.shape[0],img_bin_org.shape[1]])
+		img_cluster = np.zeros([img_bin.shape[0],img_bin.shape[1]])
 		img_cluster[xx,yy] = 1 
 
 		## hough transfom scikit-image
@@ -126,24 +138,16 @@ if compute_row_lines==True:
 			rr,cc = line(y0,x0,y1,x1)
 			values = img_cluster[rr,cc]
 
+			# find where the lines ovelaps the cluster and find the two ending points of that overlapping
 			cluster_line_indexes = np.where(values > 0)
 
 			if np.size(cluster_line_indexes)>0:
 				end_1 = [cc[cluster_line_indexes[0][0]],rr[cluster_line_indexes[0][0]]]
 				end_2 = [cc[cluster_line_indexes[0][-1]],rr[cluster_line_indexes[0][-1]]]
 
-				# vine_rows.append(end_1)
-				# vine_rows.append(end_2)
-				# if (end_1[0]-end_2[0])==0:
-				# 	row_angle = 90
-				# else:
-				# 	row_angle = math.degrees(math.atan(float((end_1[1]-end_2[1]))/(end_1[0]-end_2[0])))
+				if end_1 != end_2:
+					vine_rows_full_line.append([end_1[0],end_1[1],end_2[0],end_2[1]])
 
-				# angle_rows.append(row_angle)
-				# angle_rows.append(row_angle)
-
-				vine_rows_full_line.append([end_1[0],end_1[1],end_2[0],end_2[1]])
-				angle_rows_full_line.append(calculate_line_angle([end_1[0],end_1[1],end_2[0],end_2[1]]))
 
 	# if show_plots:
 		# ax[0].imshow(img_cluster, cmap=cm.gray)
@@ -161,6 +165,189 @@ if compute_row_lines==True:
 
 		# plt.tight_layout()
 		# plt.show()
+
+if merge_row_lines:
+	print "Trying to merge rows"
+	# take the vine rows detected and try to recronstrucnt gaps in the row
+	radious_threshold = 5 #meters
+	resolution = 4 #[pix/m]
+	angle_threshold = 1 # degrees
+
+	radius_threshold_pix = radious_threshold * resolution #pix
+	print "radius threshold", radius_threshold_pix
+	is_line_merged = True
+	while is_line_merged:
+		number_of_lines = len(vine_rows_full_line)
+		merged_full_lines = []
+		lines_to_detele = []
+
+		is_line_merged = False
+		# find end of rows points that are close to each other
+		for org_line in range(0,number_of_lines):
+			org_line_angle = calculate_line_angle(vine_rows_full_line[org_line][:])
+			for dest_line in range(org_line+1,number_of_lines):
+				#check the angle difference between the two lines
+				dest_line_angle = calculate_line_angle(vine_rows_full_line[dest_line][:])
+				if abs(org_line_angle-dest_line_angle) < angle_threshold:
+					#if the angle is lower the the threshold check if any two ends are close enough
+					#print "angle is lower"
+					org_1 = vine_rows_full_line[org_line][0:2]
+					org_2 = vine_rows_full_line[org_line][2:4]
+					dest_1 = vine_rows_full_line[dest_line][0:2]
+					dest_2 = vine_rows_full_line[dest_line][2:4]
+	
+					max_distance = 999999
+
+					if distance.euclidean(org_1,dest_1) < radius_threshold_pix and distance.euclidean(org_1,dest_1) < max_distance:
+						merged_line = [org_2[0],org_2[1],dest_2[0],dest_2[1]]
+						merged_line_angle = calculate_line_angle(merged_line)
+						if abs(org_line_angle-merged_line_angle) < angle_threshold and abs(dest_line_angle-merged_line_angle) < angle_threshold:
+							#merged_full_lines.append(merged_line)
+							line_to_merge = merged_line
+							if not (org_line in lines_to_detele):
+								lines_to_detele.append(org_line)
+							if not (dest_line in lines_to_detele):
+								lines_to_detele.append(dest_line)
+							is_line_merged = True
+							max_distance = distance.euclidean(org_1,dest_1)
+
+					if distance.euclidean(org_1,dest_2) < radius_threshold_pix and distance.euclidean(org_1,dest_2) < max_distance:
+						merged_line = [org_2[0],org_2[1],dest_1[0],dest_1[1]]
+						merged_line_angle = calculate_line_angle(merged_line)
+						if abs(org_line_angle-merged_line_angle) < angle_threshold and abs(dest_line_angle-merged_line_angle) < angle_threshold:
+							#merged_full_lines.append(merged_line)
+							line_to_merge = merged_line
+							if not (org_line in lines_to_detele):
+								lines_to_detele.append(org_line)
+							if not (dest_line in lines_to_detele):
+								lines_to_detele.append(dest_line)
+							is_line_merged = True
+							max_distance = distance.euclidean(org_1,dest_2)
+
+					if distance.euclidean(org_2,dest_1) < radius_threshold_pix and distance.euclidean(org_2,dest_1) < max_distance:
+						merged_line = [org_1[0],org_1[1],dest_2[0],dest_2[1]]
+						merged_line_angle = calculate_line_angle(merged_line)
+						if abs(org_line_angle-merged_line_angle) < angle_threshold and abs(dest_line_angle-merged_line_angle) < angle_threshold:
+							#merged_full_lines.append(merged_line)
+							line_to_merge = merged_line
+							if not (org_line in lines_to_detele):
+								lines_to_detele.append(org_line)
+							if not (dest_line in lines_to_detele):
+								lines_to_detele.append(dest_line)
+							is_line_merged = True
+							max_distance = distance.euclidean(org_2,dest_1)
+
+					if distance.euclidean(org_2,dest_2) < radius_threshold_pix and distance.euclidean(org_2,dest_2) < max_distance:
+						merged_line = [org_1[0],org_1[1],dest_1[0],dest_1[1]]
+						merged_line_angle = calculate_line_angle(merged_line)
+						if abs(org_line_angle-merged_line_angle) < angle_threshold and abs(dest_line_angle-merged_line_angle) < angle_threshold:
+							#merged_full_lines.append(merged_line)
+							line_to_merge = merged_line
+							if not (org_line in lines_to_detele):
+								lines_to_detele.append(org_line)
+							if not (dest_line in lines_to_detele):
+								lines_to_detele.append(dest_line)
+							is_line_merged = True
+							max_distance = distance.euclidean(org_2,dest_2)
+
+				if is_line_merged:
+					break
+			if is_line_merged:
+					break
+
+		#delete short lines that have been merged and append the merged ones
+		if is_line_merged:
+			for d in sorted(lines_to_detele, reverse=True):
+				del vine_rows_full_line[d]
+			vine_rows_full_line.append(line_to_merge)
+
+
+
+if compute_toponodes_locations:
+ 	#calculate the angles for all lines
+ 	#vine_rows_slope = []
+ 	avg_distance_between_rows = 2 # meters
+ 	resolution = 4 #pix/m
+ 	distance_between_nodes = 5 #meters
+
+ 	avg_distance_between_rows_pix = avg_distance_between_rows * resolution #pix
+	distance_between_nodes_pix = distance_between_nodes * resolution # pix
+
+	img_bin_add_row_area = img_bin.copy()
+ 	intra_row_topological_nodes = []
+
+ 	for row_number in range(0,len(vine_rows_full_line)):
+ 		vine_rows_slope = calculate_line_slope(vine_rows_full_line[row_number])
+		a = vine_rows_full_line[row_number][0:2]
+		b = vine_rows_full_line[row_number][2:4]
+ 		ab = LineString([a, b])
+ 		left = ab.parallel_offset(avg_distance_between_rows_pix/2, 'left')
+		right = ab.parallel_offset(avg_distance_between_rows_pix/2, 'right')
+
+		# left side
+		p0_l = [left.boundary[0].x, left.boundary[0].y]
+		p1_l = [left.boundary[1].x, left.boundary[1].y]
+		row_length = distance.euclidean(p0_l,p1_l)
+		actual_distance_between_nodes_pix = row_length/(np.ceil(row_length/distance_between_nodes_pix))
+		number_of_divisions = row_length/actual_distance_between_nodes_pix
+		x_increment = (p1_l[0]-p0_l[0])/number_of_divisions
+		y_increment = (p1_l[1]-p0_l[1])/number_of_divisions
+		left_points = []
+		for p in range(0,(int(np.ceil(row_length/distance_between_nodes_pix))+1)):
+			x = p0_l[0]+p*x_increment
+			y = p0_l[1]+p*y_increment
+			left_points.append([x,y])
+
+		# right side
+		p0_r = [right.boundary[0].x, right.boundary[0].y]
+		p1_r = [right.boundary[1].x, right.boundary[1].y]
+		row_length = distance.euclidean(p0_r,p1_r)
+		actual_distance_between_nodes_pix = row_length/(np.ceil(row_length/distance_between_nodes_pix))
+		number_of_divisions = row_length/actual_distance_between_nodes_pix
+		x_increment = (p1_r[0]-p0_r[0])/number_of_divisions
+		y_increment = (p1_r[1]-p0_r[1])/number_of_divisions
+		right_points = []
+		for p in range(0,(int(np.ceil(row_length/distance_between_nodes_pix))+1)):
+			x = p0_r[0]+p*x_increment
+			y = p0_r[1]+p*y_increment
+			right_points.append([x,y])
+
+		intra_row_topological_nodes.append([left_points,right_points])
+		#print intra_row_topological_nodes
+		rr, cc = polygon(np.array([p0_l[1],p1_l[1],p0_r[1],p1_r[1]]), np.array([p0_l[0],p1_l[0],p0_r[0],p1_r[0]]),img_bin_add_row_area.shape)
+		img_bin_add_row_area[rr, cc] = 1
+
+
+if show_plots:
+
+	# fig, axes = plt.subplots(nrows=2, ncols=2)
+	# axes[0,0].imshow(img_bin_org, cmap='gray')
+	# axes[0,0].set_title('original')	
+
+	# axes[0,1].imshow(img_bin, cmap='gray')
+	# axes[0,1].set_title('grey')
+
+	# axes[1,0].set_title('labels')
+	# axes[1,0].imshow(img_labels, cmap='nipy_spectral')
+
+	fig, axes = plt.subplots(nrows=1, ncols=1)
+	axes.imshow(img_bin, cmap='gray')
+	axes.set_title('row lines')	
+
+	for line in range(0,len(vine_rows_full_line)):
+		#plot lines
+		axes.plot([vine_rows_full_line[line][0],vine_rows_full_line[line][2]],[vine_rows_full_line[line][1],vine_rows_full_line[line][3]], 'g', linewidth=2)	
+
+		#plot topo nodes on each side of the line
+		for side in range(0,2):
+			for p in range(0,len(intra_row_topological_nodes[line][side])):
+				axes.plot(intra_row_topological_nodes[line][side][p][0],intra_row_topological_nodes[line][side][p][1],'ro')
+
+	plt.show()
+
+
+
+
 
 # if merge_row_lines:
 # 	print "Trying to merge rows"
@@ -237,130 +424,3 @@ if compute_row_lines==True:
 
 # 		print "number of merged lines: ", len(merged_vine_rows)/2
 # 		is_line_merged = False
-
-if merge_row_lines:
-	print "Trying to merge rows"
-	# take the vine rows detected and try to recronstrucnt gaps in the row
-	radious_threshold = 10 #meters
-	resolution = 4 #[pix/m]
-	angle_threshold = 1 # degrees
-
-	radius_threshold_pix = radious_threshold * resolution #pix
-	print "radius threshold", radius_threshold_pix
-	is_line_merged = True
-	while is_line_merged:
-		number_of_lines = len(vine_rows_full_line)
-		merged_full_lines = []
-		lines_to_detele = []
-
-		is_line_merged = False
-		# find end of rows points that are close to each other
-		for org_line in range(0,number_of_lines):
-			org_line_angle = calculate_line_angle(vine_rows_full_line[org_line][:])#math.degrees(math.atan(float((vine_rows_full_line[org_line][1]-vine_rows_full_line[org_line][3]))/(vine_rows_full_line[org_line][0]-vine_rows_full_line[org_line][2])))
-			for dest_line in range(org_line+1,number_of_lines):
-				#check the angle difference between the two lines
-				dest_line_angle = calculate_line_angle(vine_rows_full_line[dest_line][:])#math.degrees(math.atan(float((vine_rows_full_line[dest_line][1]-vine_rows_full_line[dest_line][3]))/(vine_rows_full_line[dest_line][0]-vine_rows_full_line[dest_line][2])))
-				if abs(org_line_angle-dest_line_angle) < angle_threshold:
-					#if the angle is lower the the threshold check if any two ends are close enough
-					#print "angle is lower"
-					org_1 = vine_rows_full_line[org_line][0:2]
-					org_2 = vine_rows_full_line[org_line][2:4]
-					dest_1 = vine_rows_full_line[dest_line][0:2]
-					dest_2 = vine_rows_full_line[dest_line][2:4]
-	
-					max_distance = 999999
-
-					if distance.euclidean(org_1,dest_1) < radius_threshold_pix and distance.euclidean(org_1,dest_1) < max_distance:
-						merged_line = [org_2[0],org_2[1],dest_2[0],dest_2[1]]
-						merged_line_angle = calculate_line_angle(merged_line)
-						if abs(org_line_angle-merged_line_angle) < angle_threshold and abs(dest_line_angle-merged_line_angle) < angle_threshold:
-							#merged_full_lines.append(merged_line)
-							line_to_merge = merged_line
-							if not (org_line in lines_to_detele):
-								lines_to_detele.append(org_line)
-							if not (dest_line in lines_to_detele):
-								lines_to_detele.append(dest_line)
-							is_line_merged = True
-							max_distance = distance.euclidean(org_1,dest_1)
-
-					if distance.euclidean(org_1,dest_2) < radius_threshold_pix and distance.euclidean(org_1,dest_2) < max_distance:
-						merged_line = [org_2[0],org_2[1],dest_1[0],dest_1[1]]
-						merged_line_angle = calculate_line_angle(merged_line)
-						if abs(org_line_angle-merged_line_angle) < angle_threshold and abs(dest_line_angle-merged_line_angle) < angle_threshold:
-							#merged_full_lines.append(merged_line)
-							line_to_merge = merged_line
-							if not (org_line in lines_to_detele):
-								lines_to_detele.append(org_line)
-							if not (dest_line in lines_to_detele):
-								lines_to_detele.append(dest_line)
-							is_line_merged = True
-							max_distance = distance.euclidean(org_1,dest_2)
-
-					if distance.euclidean(org_2,dest_1) < radius_threshold_pix and distance.euclidean(org_2,dest_1) < max_distance:
-						merged_line = [org_1[0],org_1[1],dest_2[0],dest_2[1]]
-						merged_line_angle = calculate_line_angle(merged_line)
-						if abs(org_line_angle-merged_line_angle) < angle_threshold and abs(dest_line_angle-merged_line_angle) < angle_threshold:
-							#merged_full_lines.append(merged_line)
-							line_to_merge = merged_line
-							if not (org_line in lines_to_detele):
-								lines_to_detele.append(org_line)
-							if not (dest_line in lines_to_detele):
-								lines_to_detele.append(dest_line)
-							is_line_merged = True
-							max_distance = distance.euclidean(org_2,dest_1)
-
-					if distance.euclidean(org_2,dest_2) < radius_threshold_pix and distance.euclidean(org_2,dest_2) < max_distance:
-						merged_line = [org_1[0],org_1[1],dest_1[0],dest_1[1]]
-						merged_line_angle = calculate_line_angle(merged_line)
-						if abs(org_line_angle-merged_line_angle) < angle_threshold and abs(dest_line_angle-merged_line_angle) < angle_threshold:
-							#merged_full_lines.append(merged_line)
-							line_to_merge = merged_line
-							if not (org_line in lines_to_detele):
-								lines_to_detele.append(org_line)
-							if not (dest_line in lines_to_detele):
-								lines_to_detele.append(dest_line)
-							is_line_merged = True
-							max_distance = distance.euclidean(org_2,dest_2)
-
-				if is_line_merged == True:
-					break
-			if is_line_merged == True:
-					break
-		#delete short lines that have been merged and append the merged ones
-		for d in sorted(lines_to_detele, reverse=True):
-			del vine_rows_full_line[d]
-			del angle_rows_full_line[d]
-		vine_rows_full_line.append(line_to_merge)
-
-# if compute_toponodes_locations:
-# 	for row in v
-
-if show_plots:
-
-	# fig, axes = plt.subplots(nrows=2, ncols=2)
-	# axes[0,0].imshow(img_bin_org, cmap='gray')
-	# axes[0,0].set_title('original')	
-
-	# axes[0,1].imshow(img_bin, cmap='gray')
-	# axes[0,1].set_title('grey')
-
-	# axes[1,0].set_title('labels')
-	# axes[1,0].imshow(img_labels, cmap='nipy_spectral')
-
-	fig, axes = plt.subplots(nrows=1, ncols=1)
-	axes.imshow(img_bin, cmap='gray')
-	axes.set_title('row lines')	
-
-	# for line in range(0,len(vine_rows),2):
-	# 	axes.plot([vine_rows[line][0],vine_rows[line+1][0]],[vine_rows[line][1],vine_rows[line+1][1]], 'r', linewidth=3)
-
-	for line in range(0,len(vine_rows_full_line)):
-		axes.plot([vine_rows_full_line[line][0],vine_rows_full_line[line][2]],[vine_rows_full_line[line][1],vine_rows_full_line[line][3]], 'r', linewidth=3)	
-
-	# axes[1].imshow(img_bin, cmap='gray')
-	# axes[1].set_title('row lines')	
-	# if merge_row_lines:
-	# 	for line in range(0,len(merged_vine_rows),2):
-	# 	 	axes.plot([merged_vine_rows[line][0],merged_vine_rows[line+1][0]],[merged_vine_rows[line][1],merged_vine_rows[line+1][1]], 'blue', linewidth=3)
-
-	plt.show()
