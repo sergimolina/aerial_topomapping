@@ -112,4 +112,5 @@ if show_plots:
 	plt.show()
 
 if save_output:
+	io.imsave(image_file_name[:-4]+"_morphological_operations.png",img_morph)
 	io.imsave(image_file_name[:-4]+"_only_rows.png",img_only_rows)

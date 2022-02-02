@@ -29,6 +29,7 @@ from scipy.spatial import distance
 from scipy.stats import linregress
 
 from shapely.geometry import LineString
+from shapely.affinity import scale
 
 def calculate_line_angle(line): #list: [x0,y0,x1,y1]
 	if (line[0]-line[2])==0:
@@ -52,6 +53,7 @@ compute_row_lines = True
 show_plots = True
 merge_row_lines = True
 compute_toponodes_locations = True
+save_output = True
 
 # Read the image
 img_bin_org = io.imread(image_file_name)
@@ -79,7 +81,7 @@ if compute_row_lines:
 	clusters_to_test = [45,76]
 	for current_cluster in range(1,num_of_clusters):#range(1,num_of_clusters):#clusters_to_test:#range(130,131):#num_of_clusters):
 		#print "-------"
-		print "cluster num", current_cluster
+		print "cluster num: ", current_cluster
 
 		# Compute lines for each cluster
 		xx,yy = np.where(img_labels == current_cluster)
@@ -261,8 +263,6 @@ if merge_row_lines:
 				del vine_rows_full_line[d]
 			vine_rows_full_line.append(line_to_merge)
 
-
-
 if compute_toponodes_locations:
  	#calculate the angles for all lines
  	#vine_rows_slope = []
@@ -273,8 +273,14 @@ if compute_toponodes_locations:
  	avg_distance_between_rows_pix = avg_distance_between_rows * resolution #pix
 	distance_between_nodes_pix = distance_between_nodes * resolution # pix
 
+ 	# distance to pre-corridor nodes
+ 	distance_precorridor_nodes = 2
+ 	distance_precorridor_nodes_pix = distance_precorridor_nodes * resolution
+
+
 	img_bin_add_row_area = img_bin.copy()
- 	intra_row_topological_nodes = []
+ 	intra_corridor_topological_nodes = []
+ 	outer_corridor_topological_nodes = []
 
  	for row_number in range(0,len(vine_rows_full_line)):
  		vine_rows_slope = calculate_line_slope(vine_rows_full_line[row_number])
@@ -312,11 +318,27 @@ if compute_toponodes_locations:
 			y = p0_r[1]+p*y_increment
 			right_points.append([x,y])
 
-		intra_row_topological_nodes.append([left_points,right_points])
-		#print intra_row_topological_nodes
+		intra_corridor_topological_nodes.append([left_points,right_points])
+
+		#calculating the pre corridor nodes
+		extended_row_lenght = row_length + 2 * distance_precorridor_nodes_pix
+		scaling_factor = extended_row_lenght/row_length
+		e_left = scale(left,xfact= scaling_factor, yfact=scaling_factor, origin='center')
+		e_right = scale(right,xfact= scaling_factor, yfact=scaling_factor, origin='center')
+		p_l = [[e_left.boundary[0].x, e_left.boundary[0].y],[e_left.boundary[1].x, e_left.boundary[1].y]]
+		p_r = [[e_right.boundary[0].x, e_right.boundary[0].y],[e_right.boundary[1].x, e_right.boundary[1].y]]
+
+		outer_corridor_topological_nodes.append([p_l,p_r])
+
+		# add thick line for each line - purpose: compute the navigation nodes in the remaining free space
+ 		left = ab.parallel_offset(avg_distance_between_rows_pix, 'left')
+		right = ab.parallel_offset(avg_distance_between_rows_pix, 'right')	
+		p0_l = [left.boundary[0].x, left.boundary[0].y]
+		p1_l = [left.boundary[1].x, left.boundary[1].y]
+		p0_r = [right.boundary[0].x, right.boundary[0].y]
+		p1_r = [right.boundary[1].x, right.boundary[1].y]					
 		rr, cc = polygon(np.array([p0_l[1],p1_l[1],p0_r[1],p1_r[1]]), np.array([p0_l[0],p1_l[0],p0_r[0],p1_r[0]]),img_bin_add_row_area.shape)
 		img_bin_add_row_area[rr, cc] = 1
-
 
 if show_plots:
 
@@ -340,87 +362,17 @@ if show_plots:
 
 		#plot topo nodes on each side of the line
 		for side in range(0,2):
-			for p in range(0,len(intra_row_topological_nodes[line][side])):
-				axes.plot(intra_row_topological_nodes[line][side][p][0],intra_row_topological_nodes[line][side][p][1],'ro')
+			for p in range(0,len(intra_corridor_topological_nodes[line][side])):
+				axes.plot(intra_corridor_topological_nodes[line][side][p][0],intra_corridor_topological_nodes[line][side][p][1],'ro')
+			for p in range(0,len(outer_corridor_topological_nodes[line][side])):	
+				axes.plot(outer_corridor_topological_nodes[line][side][p][0],outer_corridor_topological_nodes[line][side][p][1],'yo')
 
+	fig, axes = plt.subplots(nrows=1, ncols=1)
+	axes.imshow(img_bin_add_row_area, cmap='gray')
+	axes.set_title('row area')	
 	plt.show()
 
 
 
-
-
-# if merge_row_lines:
-# 	print "Trying to merge rows"
-# 	# take the vine rows detected and try to recronstrucnt gaps in the row
-# 	radious_threshold = 10 #meters
-# 	resolution = 4 #[pix/m]
-# 	angle_threshold = 1 # degrees
-
-# 	radius_threshold_pix = radious_threshold * resolution #pix
-# 	print "radius threshold", radius_threshold_pix
-# 	is_line_merged = True
-# 	while is_line_merged:
-# 		merged_vine_rows = []
-# 		vine_rows_to_delete = []
-# 		number_of_end_points = len(vine_rows)
-
-# 		is_line_merged = False
-# 		# find end of rows points that are close to each other
-# 		for i in range(0,number_of_end_points):
-# 			for j in range(i,number_of_end_points):
-# 				if i!=j:
-# 					current_distance = distance.euclidean(vine_rows[i][:],vine_rows[j][:])
-# 					#print "distance: ",current_distance
-# 					if current_distance < radius_threshold_pix:
-# 						#print "Near point found"
-# 						angle_line_1 = angle_rows[i]
-# 						angle_line_2 = angle_rows[j]
-
-# 						#print "angles: ", angle_line_1, angle_line_2
-# 						#print "difference", abs(angle_line_1-angle_line_2)
-# 						# find it the line from the near point is aligned to the original
-# 						if abs(angle_line_1-angle_line_2) < angle_threshold: 
-							
-# 							if i % 2 == 0:
-# 								start_point_line_1 = vine_rows[i+1]
-# 							else:
-# 								start_point_line_1 = vine_rows[i-1]
-# 							if j % 2 == 0:
-# 								start_point_line_2 = vine_rows[j+1]
-# 							else:
-# 								start_point_line_2 = vine_rows[j-1]
-
-# 							if (start_point_line_1[0]-start_point_line_2[0])==0:
-# 								angle_merged_line = 90
-# 							else:
-# 								angle_merged_line = math.degrees(math.atan(float((start_point_line_1[1]-start_point_line_2[1]))/(start_point_line_1[0]-start_point_line_2[0])))
-
-# 							# find if the resulting merged line angle is similar to the original
-# 							if abs(angle_line_1-angle_merged_line) < angle_threshold:
-# 								#print "Lines can be merged"
-# 								merged_vine_rows.append(start_point_line_1)
-# 								merged_vine_rows.append(start_point_line_2)
-# 								if not (i in vine_rows_to_delete):
-# 									vine_rows_to_delete.append(i)
-# 									if i % 2 == 0:
-# 										vine_rows_to_delete.append(i+1)
-# 									else:
-# 										vine_rows_to_delete.append(i-1)
-
-# 								if not (j in vine_rows_to_delete):
-# 									vine_rows_to_delete.append(j)
-# 									if j % 2 == 0:
-# 										vine_rows_to_delete.append(j+1)
-# 									else:
-# 										vine_rows_to_delete.append(j-1)
-
-# 								is_line_merged = True
-
-# 		#delete short lines that have been merged and append the merged ones
-# 		for d in sorted(vine_rows_to_delete, reverse=True):
-# 			del vine_rows[d]
-# 		for f in range(0,len(merged_vine_rows)):
-# 			vine_rows.append(merged_vine_rows[f])
-
-# 		print "number of merged lines: ", len(merged_vine_rows)/2
-# 		is_line_merged = False
+if save_output:
+	io.imsave(image_file_name[:-4]+"_added_offset.png",img_bin_add_row_area)
