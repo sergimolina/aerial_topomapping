@@ -27,7 +27,7 @@ from sklearn.decomposition import PCA
 
 #Parameters
 #image_file_name = '../data/greece_zoom20_23cmpix_binary.png'
-image_file_name = '../data/input/ktima_Gerovasileioy_2020-07-21_Field_60_25cm_nonground_elevation_image.png'
+image_file_name = '../data/input/ktima_Gerovasileioy_2020-07-21_Field_60_25cm_nonground_elevation_image_crop.png'
 apply_morphological_operations = True
 apply_row_cluster_detection = True
 show_plots = True
@@ -54,7 +54,7 @@ if apply_morphological_operations:
 	# img_bin = binary_closing(img_bin,mask)
 	img_bin = remove_small_objects(img_bin,min_size=30)
 	img_bin = remove_small_holes(img_bin)
-	img_bin = segmentation.clear_border(img_bin)
+	#img_bin = segmentation.clear_border(img_bin)
 	# img_bin = thin(img_bin,1)
 
 	img_morph = img_bin

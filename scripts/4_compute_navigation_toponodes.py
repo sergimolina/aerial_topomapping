@@ -36,8 +36,8 @@ import sknw #lib to build graph from skeleton
 from networkx.algorithms.dag import transitive_closure
 
 #Parameters
-org_image_file_name = '../data/input/ktima_Gerovasileioy_2020-07-21_Field_60_25cm_nonground_elevation_image_morphological_operations.png'
-rows_offset_image_file_name = '../data/input/ktima_Gerovasileioy_2020-07-21_Field_60_25cm_nonground_elevation_image_only_rows_added_offset.png'
+org_image_file_name = '../data/input/ktima_Gerovasileioy_2020-07-21_Field_60_25cm_nonground_elevation_image_crop_morphological_operations.png'
+rows_offset_image_file_name = '../data/input/ktima_Gerovasileioy_2020-07-21_Field_60_25cm_nonground_elevation_image_crop_only_rows_added_offset.png'
 show_plots = False
 save_output = False
 compute_voronoi = True
@@ -81,21 +81,36 @@ if compute_voronoi:
 	print "number of nodes"
 	print graph.number_of_nodes()
 
-	node_removed = True
-	while node_removed == True:
-		node_removed = False
-		nodes_to_remove = []
-		for i in graph.nodes():
-		 	if graph.degree(i) == 1:
-		 		nodes_to_remove.append(i)
-		 		node_removed = True
-		graph.remove_nodes_from(nodes_to_remove)
+	# remove nodes with only 1 edge 
+	# node_removed = True
+	#while node_removed == True:
+	node_removed = False
+	nodes_to_remove = []
+	for i in graph.nodes():
+		if graph.degree(i) == 1:
+			nodes_to_remove.append(i)
+			node_removed = True
+	graph.remove_nodes_from(nodes_to_remove)
+
+
+	#remove nodes wiht 2 edges
+	# for node in list(graph.nodes()):
+	#     if graph.degree(node) == 2:
+	#         edges = list(graph.edges(node))
+	#         print edges
+	#         graph.add_edge(edges[0][1], edges[1][1])
+	#         graph.remove_node(node)
+
+	# nodes_with_3_edges = []
+	# for i in graph.nodes():
+	# 	if graph.degree(i) > 1:
+	# 		nodes_with_3_edges.append(i)
 
 
 show_plots = True
 if show_plots:
 
-	fig, axes = plt.subplots(nrows=1, ncols=2)
+	fig, axes = plt.subplots(nrows=1, ncols=1)
 
 	# axes[0].imshow(img_bin_org, cmap='gray')
 	# axes[0].set_title('original')	
@@ -103,21 +118,21 @@ if show_plots:
 	# axes[1].imshow(img_bin_rows_offset, cmap='gray')
 	# axes[1].set_title('rows offset')
 
-	axes[0].set_title('merging')
-	axes[0].imshow(img_bin_merged, cmap='gray')
+	# axes[0].set_title('merging')
+	# axes[0].imshow(img_bin_merged, cmap='gray')
 
-	axes[1].set_title('edt')
-	axes[1].imshow(img_bin_merged, cmap='gray')
+	axes.set_title('edt')
+	axes.imshow(img_bin_org, cmap='gray')
 
 	#draw edges by pts
 	for (s,e) in graph.edges():
 	    ps = graph[s][e]['pts']
-	    axes[1].plot(ps[:,1], ps[:,0], 'green')
+	    axes.plot(ps[:,1], ps[:,0], 'green')
 
 	#nodes = graph.nodes()
 	nodes = graph.nodes()
 	ps = np.array([nodes[i]['o'] for i in nodes])
-	axes[1].plot(ps[:,1], ps[:,0], 'r.')
+	axes.plot(ps[:,1], ps[:,0], 'r.')
 
 	plt.show()
 

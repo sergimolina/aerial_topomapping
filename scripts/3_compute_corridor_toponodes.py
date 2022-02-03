@@ -48,7 +48,7 @@ def calculate_line_slope(line): #list: [x0,y0,x1,y1]
 
 #Parameters
 #image_file_name = './data/greece_zoom20_23cmpix_binary.png'
-image_file_name = '../data/input/ktima_Gerovasileioy_2020-07-21_Field_60_25cm_nonground_elevation_image_only_rows.png'
+image_file_name = '../data/input/ktima_Gerovasileioy_2020-07-21_Field_60_25cm_nonground_elevation_image_crop_only_rows.png'
 compute_row_lines = True
 show_plots = True
 merge_row_lines = True
@@ -74,7 +74,6 @@ if compute_row_lines:
 	vine_rows = []
 	angle_rows = []
 	vine_rows_full_line = []
-	#angle_rows_full_line = []
 
 	print "num_of_clusters:", num_of_clusters
 
@@ -97,7 +96,8 @@ if compute_row_lines:
 		#if len(best_angle_ind) < 3600:
 			
 		if len(best_angle_ind) > 1:
-			best_angle_ind = best_angle_ind[0] #still don't know how to solve whcih of the max to choose
+			index_to_pick = int(len(best_angle_ind)/2) #still don't know how to solve whcih of the max to choose. Put the mniddle but looking for a better solution
+			best_angle_ind = best_angle_ind[index_to_pick] 
 
 
 		# get other parallel lines
@@ -114,22 +114,63 @@ if compute_row_lines:
 		x_max = img_cluster.shape[1]-1
 		y_max = img_cluster.shape[0]-1
 
+
 		for dist in paralel_lines_distances: #iterate over all paralel lines
-			x0 = 0
-			y0 = dist/np.sin(paralel_lines_angle)
-			if y0 < 0 or y0 > y_max:		
-				x0 = dist/np.cos(paralel_lines_angle)
-				y0 = 0
+			case = [False, False, False, False]
+			# calculte the two points of the line crossing the outer limits
+			# point 1
+			#case 1
+			point0_set = False
+			point1_set = False
 
-			x1 = x_max
-			y1 = (dist - (x_max)* np.cos(paralel_lines_angle))/np.sin(paralel_lines_angle)
-			if y1 < 0 or y1 > y_max:	
-				x1 = (dist - x_max* np.sin(paralel_lines_angle))/np.cos(paralel_lines_angle)
-				y1 = y_max
+			x = 0
+			y = (dist - x* np.cos(paralel_lines_angle))/np.sin(paralel_lines_angle)
+			if not(x < 0 or x > x_max or y < 0 or y > y_max):
+				case[0] = True
+				if point0_set == False:
+					x0 = x
+					y0 = y
+					point0_set = True
 
-			if x1 < 0 or x1 > x_max:		
-			 	x1 = dist/np.cos(paralel_lines_angle)
-			 	y1 = 0	
+			#case 2
+			y = 0
+			x =(dist - y* np.sin(paralel_lines_angle))/np.cos(paralel_lines_angle)
+			if not(x < 0 or x > x_max or y < 0 or y > y_max):
+				case[1] = True
+				if point0_set == False:
+					x0 = x
+					y0 = y
+					point0_set = True
+				else:
+					x1 = x
+					y1 = y
+
+			#case 3
+			x = x_max
+			y = (dist - x* np.cos(paralel_lines_angle))/np.sin(paralel_lines_angle)
+			if not(x < 0 or x > x_max or y < 0 or y > y_max):
+				case[2] = True
+				if point0_set == False:
+					x0 = x
+					y0 = y
+					point0_set = True
+				else:
+					x1 = x
+					y1 = y
+
+			#case 4
+			y = y_max
+			x =(dist - y* np.sin(paralel_lines_angle))/np.cos(paralel_lines_angle)
+			if not(x < 0 or x > x_max or y < 0 or y > y_max):
+				case[3] = True
+				if point0_set == False:
+					x0 = x
+					y0 = y
+					point0_set = True
+				else:
+					x1 = x
+					y1 = y
+
 
 			x0 = int(round(x0))
 			x1 = int(round(x1))
@@ -137,6 +178,7 @@ if compute_row_lines:
 			y1 = int(round(y1))
 
 			#print "coordinates:", x0,y0,x1,y1
+
 			rr,cc = line(y0,x0,y1,x1)
 			values = img_cluster[rr,cc]
 
@@ -331,8 +373,8 @@ if compute_toponodes_locations:
 		outer_corridor_topological_nodes.append([p_l,p_r])
 
 		# add thick line for each line - purpose: compute the navigation nodes in the remaining free space
- 		left = ab.parallel_offset(avg_distance_between_rows_pix, 'left')
-		right = ab.parallel_offset(avg_distance_between_rows_pix, 'right')	
+ 		left = ab.parallel_offset(avg_distance_between_rows_pix*0.6, 'left')
+		right = ab.parallel_offset(avg_distance_between_rows_pix*0.6, 'right')	
 		p0_l = [left.boundary[0].x, left.boundary[0].y]
 		p1_l = [left.boundary[1].x, left.boundary[1].y]
 		p0_r = [right.boundary[0].x, right.boundary[0].y]
@@ -360,16 +402,18 @@ if show_plots:
 		#plot lines
 		axes.plot([vine_rows_full_line[line][0],vine_rows_full_line[line][2]],[vine_rows_full_line[line][1],vine_rows_full_line[line][3]], 'g', linewidth=2)	
 
-		#plot topo nodes on each side of the line
-		for side in range(0,2):
-			for p in range(0,len(intra_corridor_topological_nodes[line][side])):
-				axes.plot(intra_corridor_topological_nodes[line][side][p][0],intra_corridor_topological_nodes[line][side][p][1],'ro')
-			for p in range(0,len(outer_corridor_topological_nodes[line][side])):	
-				axes.plot(outer_corridor_topological_nodes[line][side][p][0],outer_corridor_topological_nodes[line][side][p][1],'yo')
+		if compute_toponodes_locations:
+			#plot topo nodes on each side of the line
+			for side in range(0,2):
+				for p in range(0,len(intra_corridor_topological_nodes[line][side])):
+					axes.plot(intra_corridor_topological_nodes[line][side][p][0],intra_corridor_topological_nodes[line][side][p][1],'ro')
+				for p in range(0,len(outer_corridor_topological_nodes[line][side])):	
+					axes.plot(outer_corridor_topological_nodes[line][side][p][0],outer_corridor_topological_nodes[line][side][p][1],'yo')
 
-	fig, axes = plt.subplots(nrows=1, ncols=1)
-	axes.imshow(img_bin_add_row_area, cmap='gray')
-	axes.set_title('row area')	
+	if compute_toponodes_locations:
+		fig, axes = plt.subplots(nrows=1, ncols=1)
+		axes.imshow(img_bin_add_row_area, cmap='gray')
+		axes.set_title('row area')	
 	plt.show()
 
 
