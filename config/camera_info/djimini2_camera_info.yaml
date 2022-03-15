@@ -1,0 +1,4 @@
+image_width: 4000
+image_height: 3000
+distortion_model: 'plumb_bob'
+fov: 83
