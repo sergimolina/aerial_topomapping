@@ -319,7 +319,6 @@ if compute_toponodes_locations:
  	distance_precorridor_nodes = 2
  	distance_precorridor_nodes_pix = distance_precorridor_nodes * resolution
 
-
 	img_bin_add_row_area = img_bin.copy()
  	intra_corridor_topological_nodes = []
  	outer_corridor_topological_nodes = []
@@ -363,8 +362,8 @@ if compute_toponodes_locations:
 		intra_corridor_topological_nodes.append([left_points,right_points])
 
 		#calculating the pre corridor nodes
-		extended_row_lenght = row_length + 2 * distance_precorridor_nodes_pix
-		scaling_factor = extended_row_lenght/row_length
+		extended_row_length = row_length + 2 * distance_precorridor_nodes_pix
+		scaling_factor = extended_row_length/row_length
 		e_left = scale(left,xfact= scaling_factor, yfact=scaling_factor, origin='center')
 		e_right = scale(right,xfact= scaling_factor, yfact=scaling_factor, origin='center')
 		p_l = [[e_left.boundary[0].x, e_left.boundary[0].y],[e_left.boundary[1].x, e_left.boundary[1].y]]
