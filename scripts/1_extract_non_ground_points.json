@@ -1,0 +1,17 @@
+{
+    "pipeline": [
+        "./KG_big1.las",
+        {
+        "type":"filters.outlier",
+        "method":"statistical"
+        },
+        {
+        "type":"filters.smrf"
+        },
+        {
+        "type":"filters.range",
+        "limits":"Classification[1:1]"
+        },
+        "KG_big1_non_ground.las"
+    ]
+}

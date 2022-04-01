@@ -1,0 +1,12 @@
+{
+    "pipeline": [
+        "./KG_big1_non_ground.las",
+        {
+            "filename":"./KG_big1.tif",
+            "gdaldriver":"GTiff",
+            "output_type":"max",
+            "resolution":"0.1",
+            "type": "writers.gdal"
+        }
+    ]
+}
