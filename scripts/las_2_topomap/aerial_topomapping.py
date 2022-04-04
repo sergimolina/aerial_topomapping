@@ -34,7 +34,7 @@ from shapely.geometry import LineString
 from shapely.affinity import scale
 
 import warnings
-from shapely.errors import ShapelyDeprecationWarning
+#from shapely.errors import ShapelyDeprecationWarning
 
 from pyproj import Proj, transform
 
@@ -327,7 +327,7 @@ def merge_row_lines(vine_rows_full_line,resolution,radious_threshold, angle_thre
 
 
 def compute_corridor_nodes(vine_rows_full_line, resolution, inter_row_distance, distance_between_nodes,distance_precorridor_nodes):
-	warnings.filterwarnings("ignore", category=ShapelyDeprecationWarning) 
+	#warnings.filterwarnings("ignore", category=ShapelyDeprecationWarning) 
 	print("-- Computing corridor nodes --")
 	distance_between_rows_pix = inter_row_distance * resolution #pix
 	distance_between_nodes_pix = distance_between_nodes * resolution # pix
@@ -456,7 +456,7 @@ def merge_corridor_nodes(corridor_topological_nodes, resolution, distance_thresh
 	print("-- Done --")
 	return(corridor_topological_nodes)
 
-def reproject_coordinates(corridor_topological_nodes,crs,image_transform):
+def reproject_coordinates_to_latlon(corridor_topological_nodes,crs,image_transform):
 	print ("-- Transforming toponodes locations to latitude/longitude --")
 	corridor_toponodes_data = {}
 	corridor_toponodes_data['crs'] = 'epsg:4326'
@@ -471,5 +471,47 @@ def reproject_coordinates(corridor_topological_nodes,crs,image_transform):
 			temp_corridor.append(x)
 			temp_corridor.append(y)
 		corridor_toponodes_data['corridors'].append(temp_corridor)
-
+	print ("-- Done --")
 	return corridor_toponodes_data
+
+def reproject_coordinates_to_utm(corridor_topological_nodes,crs,image_transform):
+	print ("-- Transforming toponodes locations to UTM --")
+	corridor_toponodes_data = {}
+	corridor_toponodes_data['crs'] = crs
+	corridor_toponodes_data['corridors'] = []
+	for c in corridor_topological_nodes:
+		temp_corridor = []
+		for p in range(0,8,2):
+			x,y = rasterio.transform.xy(image_transform,c[p],c[p+1])
+			temp_corridor.append(x)
+			temp_corridor.append(y)
+		corridor_toponodes_data['corridors'].append(temp_corridor)
+	print ("-- Done --")
+	return corridor_toponodes_data
+
+def transform_toponodes_from_utm_to_map_coordinates(corridor_toponodes_utm,datum_longitude,datum_latitude,image_transform):
+	
+	#get the datum in utm
+	inProj = Proj(init='epsg:4326')
+	outProj = Proj(init=corridor_toponodes_utm['crs']) #world coordinates
+	datum_x,datum_y = transform(inProj,outProj,datum_longitude,datum_latitude)
+
+	#calculte the toponoes in datum reference
+	corridor_toponodes_map = {}
+	corridor_toponodes_map['crs']= "custom_datum"
+	corridor_toponodes_map['datum'] = {}
+	corridor_toponodes_map['datum']['crs'] = corridor_toponodes_utm['crs']
+	corridor_toponodes_map['datum']['longitude'] = datum_x
+	corridor_toponodes_map['datum']['latitude'] = datum_y
+	corridor_toponodes_map['corridors'] = []
+
+	for c in corridor_toponodes_utm:
+		temp_corridor = []
+		for p in range(0,8,2):
+			x = c[p] - datum_x
+			y = c[p+1] - datum_y
+			temp_corridor.append(x)
+			temp_corridor.append(y)
+		corridor_toponodes_map['corridors'].append(temp_corridor)
+
+	return corridor_toponodes_map

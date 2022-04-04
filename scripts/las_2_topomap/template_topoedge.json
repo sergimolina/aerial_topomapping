@@ -1,0 +1,20 @@
+{
+  "action": "move_base",
+  "action_type": "move_base_msgs/MoveBaseGoal",
+  "config": "*id001",
+  "edge_id": "edge_id",
+  "fail_policy": "fail",
+  "fluid_navigation": "true",
+  "goal": {
+    "target_pose": {
+      "header": {
+        "frame_id": "$node.parent_frame"
+      },
+      "pose": "$node.pose"
+    },
+    "node:node": {},
+    "recovery_behaviours_config": "",
+    "restrictions_planning": "True",
+    "restrictions_runtime": "True"
+  }
+}

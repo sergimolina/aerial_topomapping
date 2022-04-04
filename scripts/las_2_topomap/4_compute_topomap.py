@@ -5,91 +5,92 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 import json
+import yaml
+from pyproj import Proj, transform
+import datetime
+import copy
 
-toponodes_filename = 'riseholme_toponodes.json'
+def transform_toponodes_from_utm_to_map_coordinates(corridor_toponodes_utm,datum_longitude,datum_latitude):
+	
+	#get the datum in utm
+	inProj = Proj(init='epsg:4326')
+	outProj = Proj(init=corridor_toponodes_utm['crs']) #world coordinates
+	datum_x,datum_y = transform(inProj,outProj,datum_longitude,datum_latitude)
+
+	#calculte the toponoes in datum reference
+	corridor_toponodes_map = {}
+	corridor_toponodes_map['crs']= "custom_datum"
+	corridor_toponodes_map['datum'] = {}
+	corridor_toponodes_map['datum']['crs'] = corridor_toponodes_utm['crs']
+	corridor_toponodes_map['datum']['longitude'] = datum_x
+	corridor_toponodes_map['datum']['latitude'] = datum_y
+	corridor_toponodes_map['corridors'] = []
+
+	for c in corridor_toponodes_utm['corridors']:
+		temp_corridor = []
+		for p in range(0,8,2):
+			y = -c[p] + datum_x
+			x = -c[p+1] + datum_y
+			temp_corridor.append(x)
+			temp_corridor.append(y)
+		corridor_toponodes_map['corridors'].append(temp_corridor)
+
+	return corridor_toponodes_map
+
+def generate_topological_map(corridor_toponodes_map,tmap_name,template_toponode):
+	topomap = {}
+	topomap["meta"] = {}
+	topomap["meta"]["last_updated"] = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+	topomap["name"] = tmap_name
+	topomap["metric_map"] = tmap_name
+	topomap["pointset"] = tmap_name
+	topomap["transformation"] = {}
+	topomap["transformation"]["rotation"] = {}
+	topomap["transformation"]["rotation"]["w"] = 1.0
+	topomap["transformation"]["rotation"]["x"] = 0.0
+	topomap["transformation"]["rotation"]["y"] = 0.0
+	topomap["transformation"]["rotation"]["z"] = 0.0
+	topomap["transformation"]["translation"] = {}
+	topomap["transformation"]["translation"]["x"] = 0.0
+	topomap["transformation"]["translation"]["y"] = 0.0
+	topomap["transformation"]["translation"]["z"] = 0.0
+	topomap["transformation"]["child"] = "topo_map"
+	topomap["transformation"]["parent"] = "map"
+	topomap["nodes"] = []
+
+	for c in range(0,len(corridor_toponodes_map["corridors"])):
+		num = 0
+		for p in range(0,8,2):
+			node = copy.deepcopy(template_toponode)
+			node["meta"]["map"] = tmap_name 
+			node["meta"]["pointset"] = tmap_name
+			node["meta"]["node"] = "c"+str(c)+"_p"+str(num)
+			node["node"]["name"] = "c"+str(c)+"_p"+str(num)
+			node["node"]["pose"]["position"]["x"] = corridor_toponodes_map["corridors"][c][p] 
+			node["node"]["pose"]["position"]["y"] = corridor_toponodes_map["corridors"][c][p+1]
+
+			topomap["nodes"].append(node)
+			num = num+1
+	return topomap
+
+##########################
+toponodes_filename = '../../data/riseholme/riseholme_toponodes_utm.json'
 datum_longitude = -0.524509505881
 datum_latitude = 53.268642038
+tmap_name = "riseholme_test"
 
+#read the toponodes file
+with open(toponodes_filename, 'r') as f:
+	corridor_toponodes_utm = json.load(f)
 
+#load node and edges templates
+with open("template_toponode.json", 'r') as f:
+	template_toponode = json.load(f)
 
-def transform_to_map_coordinates():
-corridor_toponodes_geo
+with open("template_topoedge.json", 'r') as f:
+	template_topoedge = json.load(f)
 
-corridor_toponodes_map
-
-def process_corridor():
-	for c in range(0,len(corridor_toponodes_map)):
-		for p in range(0,8,2):
-			node = copy.deepcopy(self.template_node)
-
-            node["meta"]["map"] = self.config["map_2d"] 
-            node["meta"]["pointset"] = self.config["pointset"]
-            node["meta"]["node"] = "c"+str(c)+"_p"+str(p/2-0.5)
-            node["node"]["name"] = "c"+str(c)+"_p"+str(p/2-0.5)
-            
-            node["node"]["pose"]["position"]["x"] = corridor_toponodes_map[c][p] 
-            node["node"]["pose"]["position"]["y"] = corridor_toponodes_map[c][p+1]
-            
-            node["node"]["pose"]["orientation"]["x"] = 0
-            node["node"]["pose"]["orientation"]["y"] = 0
-            node["node"]["pose"]["orientation"]["z"] = 0
-            node["node"]["pose"]["orientation"]["w"] = 1
-
-            node["node"]["properties"]["xy_goal_tolerance"] = self.config["xy_goal_tolerance"]
-            node["node"]["properties"]["yaw_goal_tolerance"] = self.config["yaw_goal_tolerance"]
-
-            self.tmap.append(node)
-
-image = rasterio.open(image_filename)
-image_resolution = 10 #[pix/m]
-cluster_ratio_threshold = 30
-radious_threshold = 5 #[m]
-angle_threshold = 1 #[degrees]
-inter_row_distance = 2 #[m]
-distance_between_nodes = 5 #[m]
-distance_precorridor_nodes = 1 #[m]
-merge_corridor_distance_threshold = 1.5 #[m]
-
-# obtain the clusters classified as canopy rows
-if os.path.isfile(image_filename[:-4]+'_rows_clusters_img.npy'):
-	print ("-- Loading row clusters image from file --")
-	band1_mod = np.load(image_filename[:-4]+'_rows_clusters_img.npy')
-else:
-	band1 = image.read(1)
-	band1_mod = at.apply_binarisation(band1)
-	band1_mod = at.apply_morphological_operations(band1_mod)
-	band1_mod = at.row_detection(band1_mod,cluster_ratio_threshold)
-	np.save(image_filename[:-4]+'_rows_clusters_img',band1_mod)
-
-# Compute the canopy row lines
-if os.path.isfile(image_filename[:-4]+'_row_lines.npy'):
-	print ("-- Loading row lines from file --")
-	row_lines = np.load(image_filename[:-4]+'_row_lines.npy')
-else:
-	row_lines = at.compute_row_lines(band1_mod)
-	row_lines = at.merge_row_lines(row_lines,image_resolution, radious_threshold , angle_threshold)
-	np.save(image_filename[:-4]+'_row_lines',row_lines)
-
-# Compute the corridor topological nodes
-corridor_toponodes_pix = at.compute_corridor_nodes(row_lines, image_resolution, inter_row_distance, distance_between_nodes,distance_precorridor_nodes)
-corridor_toponodes_pix = at.merge_corridor_nodes(corridor_toponodes_pix, image_resolution, merge_corridor_distance_threshold)
-
-# Transform the nodes from pix to latitude longitude coordinates
-corridor_toponodes_geo = at.reproject_coordinates(corridor_toponodes_pix,image.crs,image.transform)
-with open(image_filename[:-4]+'_toponodes.json','w') as f:
-	json.dump(corridor_toponodes_geo,f)
-
-
-
-# plotting
-# fig, axes = plt.subplots(nrows=1, ncols=1)
-# axes.imshow(band1, cmap="gray")
-# for c in corridor_toponodes:
-# 	axes.plot(c[0],c[1],'ro')
-# 	axes.plot(c[2],c[3],'bo')
-# 	axes.plot(c[4],c[5],'bo')
-# 	axes.plot(c[6],c[7],'ro')
-# for r in row_lines:
-# 	axes.plot(r[0],r[1],'go')
-# 	axes.plot(r[2],r[3],'go')
-# plt.show()
+corridor_toponodes_map = transform_toponodes_from_utm_to_map_coordinates(corridor_toponodes_utm,datum_longitude,datum_latitude)
+topomap = generate_topological_map(corridor_toponodes_map,tmap_name,template_toponode)
+with open(tmap_name+".tmap2",'w') as f:
+	yaml.dump(topomap, f)

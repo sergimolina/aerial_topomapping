@@ -7,8 +7,7 @@ import numpy as np
 import json
 
 #image_filename = 'KG_big1.tif'
-image_filename = 'riseholme.tif'
-image = rasterio.open(image_filename)
+image_filename = '../../data/riseholme/riseholme.tif'
 image_resolution = 10 #[pix/m]
 cluster_ratio_threshold = 30
 radious_threshold = 5 #[m]
@@ -17,13 +16,18 @@ inter_row_distance = 2 #[m]
 distance_between_nodes = 5 #[m]
 distance_precorridor_nodes = 1 #[m]
 merge_corridor_distance_threshold = 1.5 #[m]
+datum_longitude = -0.524509505881
+datum_latitude = 53.268642038
 
+
+
+image = rasterio.open(image_filename)
+band1 = image.read(1)
 # obtain the clusters classified as canopy rows
 if os.path.isfile(image_filename[:-4]+'_rows_clusters_img.npy'):
 	print ("-- Loading row clusters image from file --")
 	band1_mod = np.load(image_filename[:-4]+'_rows_clusters_img.npy')
 else:
-	band1 = image.read(1)
 	band1_mod = at.apply_binarisation(band1)
 	band1_mod = at.apply_morphological_operations(band1_mod)
 	band1_mod = at.row_detection(band1_mod,cluster_ratio_threshold)
@@ -42,22 +46,26 @@ else:
 corridor_toponodes_pix = at.compute_corridor_nodes(row_lines, image_resolution, inter_row_distance, distance_between_nodes,distance_precorridor_nodes)
 corridor_toponodes_pix = at.merge_corridor_nodes(corridor_toponodes_pix, image_resolution, merge_corridor_distance_threshold)
 
-# Transform the nodes from pix to latitude longitude coordinates
-corridor_toponodes_geo = at.reproject_coordinates(corridor_toponodes_pix,image.crs,image.transform)
-with open(image_filename[:-4]+'_toponodes.json','w') as f:
-	json.dump(corridor_toponodes_geo,f)
+# Transform the nodes from pix to latitude longitude coordinates and utm
+corridor_toponodes_latlon = at.reproject_coordinates_to_latlon(corridor_toponodes_pix,str(image.crs),image.transform)
+with open(image_filename[:-4]+'_toponodes_latlon.json','w') as f:
+	json.dump(corridor_toponodes_latlon,f,indent=4)
+
+corridor_toponodes_utm = at.reproject_coordinates_to_utm(corridor_toponodes_pix,str(image.crs),image.transform)
+with open(image_filename[:-4]+'_toponodes_utm.json','w') as f:
+	json.dump(corridor_toponodes_utm,f,indent=4)
 
 
 
-# plotting
-# fig, axes = plt.subplots(nrows=1, ncols=1)
-# axes.imshow(band1, cmap="gray")
-# for c in corridor_toponodes:
-# 	axes.plot(c[0],c[1],'ro')
-# 	axes.plot(c[2],c[3],'bo')
-# 	axes.plot(c[4],c[5],'bo')
-# 	axes.plot(c[6],c[7],'ro')
-# for r in row_lines:
-# 	axes.plot(r[0],r[1],'go')
-# 	axes.plot(r[2],r[3],'go')
-# plt.show()
+#plotting
+fig, axes = plt.subplots(nrows=1, ncols=1)
+axes.imshow(band1, cmap="gray")
+for c in corridor_toponodes_pix:
+	axes.plot(c[0],c[1],'ro')
+	axes.plot(c[2],c[3],'bo')
+	axes.plot(c[4],c[5],'bo')
+	axes.plot(c[6],c[7],'ro')
+for r in row_lines:
+	axes.plot(r[0],r[1],'go')
+	axes.plot(r[2],r[3],'go')
+plt.show()

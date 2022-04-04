@@ -1,8 +1,8 @@
 {
     "pipeline": [
-        "./KG_big1_non_ground.las",
+        "../../data/riseholme/riseholme_non_ground.las",
         {
-            "filename":"./KG_big1.tif",
+            "filename":"../../data/riseholme/riseholme.tif",
             "gdaldriver":"GTiff",
             "output_type":"max",
             "resolution":"0.1",
