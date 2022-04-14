@@ -19,13 +19,13 @@ with open(toponodes_filename, 'r') as f:
 	corridor_toponodes_map = json.load(f)
 
 #load node and edges templates
-with open("template_toponode.json", 'r') as f:
-	template_toponode = json.load(f)
+with open("template_toponode.yaml", 'r') as f:
+	template_toponode = yaml.safe_load(f)
 
-with open("template_topoedge.json", 'r') as f:
-	template_topoedge = json.load(f)
+with open("template_topoedge.yaml", 'r') as f:
+	template_topoedge = yaml.safe_load(f)
 
 topomap = at.generate_topological_map(corridor_toponodes_map,tmap_name,template_toponode,template_topoedge)
 
-with open(tmap_name+".tmap2",'w') as f:
+with open('../../data/riseholme_correction/'+tmap_name+".tmap2",'w') as f:
 	yaml.dump(topomap, f)

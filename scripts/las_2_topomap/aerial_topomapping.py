@@ -554,32 +554,32 @@ def generate_topological_map(corridor_toponodes_map,tmap_name,template_toponode,
 			node["node"]["pose"]["position"]["x"] = corridor_toponodes_map["corridors"][c][p] 
 			node["node"]["pose"]["position"]["y"] = corridor_toponodes_map["corridors"][c][p+1]
 
-			# if num == 0:
-			# 	edge = copy.deepcopy(template_topoedge)
-			# 	edge["action"] = "row_traversal"
-			# 	edge["edge_id"] = "c"+str(c)+"_p"+str(num)+"-"+"c"+str(c)+"_p"+str(num+1)
-			# 	edge["node"] = "c"+str(c)+"_p"+str(num+1)
-			# 	node["node"]["edges"].append(edge)
+			if num == 0:
+				edge = copy.deepcopy(template_topoedge)
+				edge["action"] = "row_traversal"
+				edge["edge_id"] = "c"+str(c)+"_p"+str(num)+"-"+"c"+str(c)+"_p"+str(num+1)
+				edge["node"] = "c"+str(c)+"_p"+str(num+1)
+				node["node"]["edges"].append(edge)
 
-			# if num == 1 or num==2:
-			# 	edge = copy.deepcopy(template_topoedge)
-			# 	edge["action"] = "row_traversal"
-			# 	edge["edge_id"] = "c"+str(c)+"_p"+str(num)+"-"+"c"+str(c)+"_p"+str(num+1)
-			# 	edge["node"] = "c"+str(c)+"_p"+str(num+1)
-			# 	node["node"]["edges"].append(edge)
+			if num == 1 or num==2:
+				edge = copy.deepcopy(template_topoedge)
+				edge["action"] = "row_traversal"
+				edge["edge_id"] = "c"+str(c)+"_p"+str(num)+"-"+"c"+str(c)+"_p"+str(num+1)
+				edge["node"] = "c"+str(c)+"_p"+str(num+1)
+				node["node"]["edges"].append(edge)
 
-			# 	edge = copy.deepcopy(template_topoedge)
-			# 	edge["action"] = "row_traversal"
-			# 	edge["edge_id"] = "c"+str(c)+"_p"+str(num)+"-"+"c"+str(c)+"_p"+str(num-1)
-			# 	edge["node"] = "c"+str(c)+"_p"+str(num-1)
-			# 	node["node"]["edges"].append(edge)
+				edge = copy.deepcopy(template_topoedge)
+				edge["action"] = "row_traversal"
+				edge["edge_id"] = "c"+str(c)+"_p"+str(num)+"-"+"c"+str(c)+"_p"+str(num-1)
+				edge["node"] = "c"+str(c)+"_p"+str(num-1)
+				node["node"]["edges"].append(edge)
 
-			# if num == 3:
-			# 	edge = copy.deepcopy(template_topoedge)
-			# 	edge["action"] = "row_traversal"
-			# 	edge["edge_id"] = "c"+str(c)+"_p"+str(num)+"-"+"c"+str(c)+"_p"+str(num-1)
-			# 	edge["node"] = "c"+str(c)+"_p"+str(num-1)
-			# 	node["node"]["edges"].append(edge)
+			if num == 3:
+				edge = copy.deepcopy(template_topoedge)
+				edge["action"] = "row_traversal"
+				edge["edge_id"] = "c"+str(c)+"_p"+str(num)+"-"+"c"+str(c)+"_p"+str(num-1)
+				edge["node"] = "c"+str(c)+"_p"+str(num-1)
+				node["node"]["edges"].append(edge)
 
 			topomap["nodes"].append(node)
 			num = num+1
