@@ -1,7 +1,7 @@
 {
   "action": "move_base",
   "action_type": "move_base_msgs/MoveBaseGoal",
-  "config": "*id001",
+  "config": [],
   "edge_id": "edge_id",
   "fail_policy": "fail",
   "fluid_navigation": "true",
@@ -12,7 +12,7 @@
       },
       "pose": "$node.pose"
     },
-    "node:node": {},
+    "node": "node",
     "recovery_behaviours_config": "",
     "restrictions_planning": "True",
     "restrictions_runtime": "True"
