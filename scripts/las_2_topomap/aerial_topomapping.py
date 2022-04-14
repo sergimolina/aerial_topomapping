@@ -522,7 +522,7 @@ def transform_toponodes_from_utm_to_map_coordinates(corridor_toponodes_utm,map_d
 	return corridor_toponodes_map
 
 
-def generate_topological_map(corridor_toponodes_map,tmap_name,template_toponode):
+def generate_topological_map(corridor_toponodes_map,tmap_name,template_toponode,template_topoedge):
 	topomap = {}
 	topomap["meta"] = {}
 	topomap["meta"]["last_updated"] = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
@@ -580,7 +580,7 @@ def generate_topological_map(corridor_toponodes_map,tmap_name,template_toponode)
 				edge["edge_id"] = "c"+str(c)+"_p"+str(num)+"-"+"c"+str(c)+"_p"+str(num-1)
 				edge["node"] = "c"+str(c)+"_p"+str(num-1)
 				node["node"]["edges"].append(edge)
-				
+
 			topomap["nodes"].append(node)
 			num = num+1
 	return topomap
