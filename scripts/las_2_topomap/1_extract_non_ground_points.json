@@ -1,6 +1,6 @@
 {
     "pipeline": [
-        "../../data/riseholme/riseholme.las",
+        "../../data/KG/KG.las",
         {
         "type":"filters.outlier",
         "method":"statistical"
@@ -12,6 +12,6 @@
         "type":"filters.range",
         "limits":"Classification[1:1]"
         },
-        "../../data/riseholme/riseholme_non_ground.las"
+        "../../data/KG/KG_non_ground.las"
     ]
 }

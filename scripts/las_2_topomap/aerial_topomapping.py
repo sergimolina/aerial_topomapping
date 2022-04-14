@@ -35,11 +35,10 @@ from shapely.affinity import scale
 
 import warnings
 #from shapely.errors import ShapelyDeprecationWarning
-
 from pyproj import Proj, transform
-
 import rasterio
-
+import datetime
+import copy
 
 def apply_binarisation(image):
 	print("-- Applying binarisation --")
@@ -456,8 +455,8 @@ def merge_corridor_nodes(corridor_topological_nodes, resolution, distance_thresh
 	print("-- Done --")
 	return(corridor_topological_nodes)
 
-def reproject_coordinates_to_latlon(corridor_topological_nodes,crs,image_transform):
-	print ("-- Transforming toponodes locations to latitude/longitude --")
+def reproject_coordinates_to_lonlat(corridor_topological_nodes,crs,image_transform):
+	print ("-- Transforming toponodes locations to longitude/latitude--")
 	corridor_toponodes_data = {}
 	corridor_toponodes_data['crs'] = 'epsg:4326'
 	corridor_toponodes_data['corridors'] = []
@@ -466,7 +465,7 @@ def reproject_coordinates_to_latlon(corridor_topological_nodes,crs,image_transfo
 	for c in corridor_topological_nodes:
 		temp_corridor = []
 		for p in range(0,8,2):
-			temp_x,temp_y = rasterio.transform.xy(image_transform,c[p],c[p+1])
+			temp_x,temp_y = rasterio.transform.xy(image_transform,rows=c[p+1],cols=c[p])
 			x,y = transform(inProj,outProj,temp_x,temp_y)
 			temp_corridor.append(x)
 			temp_corridor.append(y)
@@ -482,19 +481,23 @@ def reproject_coordinates_to_utm(corridor_topological_nodes,crs,image_transform)
 	for c in corridor_topological_nodes:
 		temp_corridor = []
 		for p in range(0,8,2):
-			x,y = rasterio.transform.xy(image_transform,c[p],c[p+1])
-			temp_corridor.append(x)
-			temp_corridor.append(y)
+			x_utm,y_utm = rasterio.transform.xy(image_transform,rows=c[p+1],cols=c[p])
+			temp_corridor.append(x_utm)
+			temp_corridor.append(y_utm)
 		corridor_toponodes_data['corridors'].append(temp_corridor)
 	print ("-- Done --")
 	return corridor_toponodes_data
 
-def transform_toponodes_from_utm_to_map_coordinates(corridor_toponodes_utm,datum_longitude,datum_latitude,image_transform):
+
+def transform_toponodes_from_utm_to_map_coordinates(corridor_toponodes_utm,map_datum_longitude,map_datum_latitude):
 	
 	#get the datum in utm
-	inProj = Proj(init='epsg:4326')
-	outProj = Proj(init=corridor_toponodes_utm['crs']) #world coordinates
-	datum_x,datum_y = transform(inProj,outProj,datum_longitude,datum_latitude)
+	# inProj = Proj(init='epsg:4326')
+	# outProj = Proj(init=corridor_toponodes_utm['crs']) #world coordinates
+	# datum_x,datum_y = transform(inProj,outProj,datum_longitude,datum_latitude, always_xy=True)
+	p=Proj(init=corridor_toponodes_utm['crs'])
+	datum_x,datum_y = p(map_datum_longitude, map_datum_latitude)
+	print(datum_x, datum_y)
 
 	#calculte the toponoes in datum reference
 	corridor_toponodes_map = {}
@@ -505,13 +508,88 @@ def transform_toponodes_from_utm_to_map_coordinates(corridor_toponodes_utm,datum
 	corridor_toponodes_map['datum']['latitude'] = datum_y
 	corridor_toponodes_map['corridors'] = []
 
-	for c in corridor_toponodes_utm:
+	for c in corridor_toponodes_utm['corridors']:
 		temp_corridor = []
 		for p in range(0,8,2):
-			x = c[p] - datum_x
-			y = c[p+1] - datum_y
-			temp_corridor.append(x)
-			temp_corridor.append(y)
+			#y_map = -c[p] + datum_x
+			#x_map = -c[p+1] + datum_y
+			x_map = c[p] - datum_x
+			y_map = c[p+1] - datum_y			
+			temp_corridor.append(x_map)
+			temp_corridor.append(y_map)
 		corridor_toponodes_map['corridors'].append(temp_corridor)
 
 	return corridor_toponodes_map
+
+
+def generate_topological_map(corridor_toponodes_map,tmap_name,template_toponode):
+	topomap = {}
+	topomap["meta"] = {}
+	topomap["meta"]["last_updated"] = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+	topomap["name"] = tmap_name
+	topomap["metric_map"] = tmap_name
+	topomap["pointset"] = tmap_name
+	topomap["transformation"] = {}
+	topomap["transformation"]["rotation"] = {}
+	topomap["transformation"]["rotation"]["w"] = 1.0
+	topomap["transformation"]["rotation"]["x"] = 0.0
+	topomap["transformation"]["rotation"]["y"] = 0.0
+	topomap["transformation"]["rotation"]["z"] = 0.0
+	topomap["transformation"]["translation"] = {}
+	topomap["transformation"]["translation"]["x"] = 0.0
+	topomap["transformation"]["translation"]["y"] = 0.0
+	topomap["transformation"]["translation"]["z"] = 0.0
+	topomap["transformation"]["child"] = "topo_map"
+	topomap["transformation"]["parent"] = "map"
+	topomap["nodes"] = []
+
+	for c in range(0,len(corridor_toponodes_map["corridors"])):
+		num = 0
+		for p in range(0,8,2):
+			node = copy.deepcopy(template_toponode)
+			node["meta"]["map"] = tmap_name 
+			node["meta"]["pointset"] = tmap_name
+			node["meta"]["node"] = "c"+str(c)+"_p"+str(num)
+			node["node"]["name"] = "c"+str(c)+"_p"+str(num)
+			node["node"]["pose"]["position"]["x"] = corridor_toponodes_map["corridors"][c][p] 
+			node["node"]["pose"]["position"]["y"] = corridor_toponodes_map["corridors"][c][p+1]
+
+			topomap["nodes"].append(node)
+			num = num+1
+	return topomap
+
+def generate_topological_map_in_utm(corridor_toponodes_utm,tmap_name,template_toponode):
+	topomap = {}
+	topomap["meta"] = {}
+	topomap["meta"]["last_updated"] = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+	topomap["name"] = tmap_name
+	topomap["metric_map"] = tmap_name
+	topomap["pointset"] = tmap_name
+	topomap["transformation"] = {}
+	topomap["transformation"]["rotation"] = {}
+	topomap["transformation"]["rotation"]["w"] = 1.0
+	topomap["transformation"]["rotation"]["x"] = 0.0
+	topomap["transformation"]["rotation"]["y"] = 0.0
+	topomap["transformation"]["rotation"]["z"] = 0.0
+	topomap["transformation"]["translation"] = {}
+	topomap["transformation"]["translation"]["x"] = 0.0
+	topomap["transformation"]["translation"]["y"] = 0.0
+	topomap["transformation"]["translation"]["z"] = 0.0
+	topomap["transformation"]["child"] = "topo_map"
+	topomap["transformation"]["parent"] = "utm"
+	topomap["nodes"] = []
+
+	for c in range(0,len(corridor_toponodes_utm["corridors"])):
+		num = 0
+		for p in range(0,8,2):
+			node = copy.deepcopy(template_toponode)
+			node["meta"]["map"] = tmap_name 
+			node["meta"]["pointset"] = tmap_name
+			node["meta"]["node"] = "c"+str(c)+"_p"+str(num)
+			node["node"]["name"] = "c"+str(c)+"_p"+str(num)
+			node["node"]["pose"]["position"]["x"] = corridor_toponodes_utm["corridors"][c][p] 
+			node["node"]["pose"]["position"]["y"] = corridor_toponodes_utm["corridors"][c][p+1]
+
+			topomap["nodes"].append(node)
+			num = num+1
+	return topomap
