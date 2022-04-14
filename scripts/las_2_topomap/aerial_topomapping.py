@@ -554,42 +554,33 @@ def generate_topological_map(corridor_toponodes_map,tmap_name,template_toponode)
 			node["node"]["pose"]["position"]["x"] = corridor_toponodes_map["corridors"][c][p] 
 			node["node"]["pose"]["position"]["y"] = corridor_toponodes_map["corridors"][c][p+1]
 
-			topomap["nodes"].append(node)
-			num = num+1
-	return topomap
+			if num == 0:
+				edge = copy.deepcopy(template_topoedge)
+				edge["action"] = "row_traversal"
+				edge["edge_id"] = "c"+str(c)+"_p"+str(num)+"-"+"c"+str(c)+"_p"+str(num+1)
+				edge["node"] = "c"+str(c)+"_p"+str(num+1)
+				node["node"]["edges"].append(edge)
 
-def generate_topological_map_in_utm(corridor_toponodes_utm,tmap_name,template_toponode):
-	topomap = {}
-	topomap["meta"] = {}
-	topomap["meta"]["last_updated"] = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-	topomap["name"] = tmap_name
-	topomap["metric_map"] = tmap_name
-	topomap["pointset"] = tmap_name
-	topomap["transformation"] = {}
-	topomap["transformation"]["rotation"] = {}
-	topomap["transformation"]["rotation"]["w"] = 1.0
-	topomap["transformation"]["rotation"]["x"] = 0.0
-	topomap["transformation"]["rotation"]["y"] = 0.0
-	topomap["transformation"]["rotation"]["z"] = 0.0
-	topomap["transformation"]["translation"] = {}
-	topomap["transformation"]["translation"]["x"] = 0.0
-	topomap["transformation"]["translation"]["y"] = 0.0
-	topomap["transformation"]["translation"]["z"] = 0.0
-	topomap["transformation"]["child"] = "topo_map"
-	topomap["transformation"]["parent"] = "utm"
-	topomap["nodes"] = []
+			if num == 1 or num==2:
+				edge = copy.deepcopy(template_topoedge)
+				edge["action"] = "row_traversal"
+				edge["edge_id"] = "c"+str(c)+"_p"+str(num)+"-"+"c"+str(c)+"_p"+str(num+1)
+				edge["node"] = "c"+str(c)+"_p"+str(num+1)
+				node["node"]["edges"].append(edge)
 
-	for c in range(0,len(corridor_toponodes_utm["corridors"])):
-		num = 0
-		for p in range(0,8,2):
-			node = copy.deepcopy(template_toponode)
-			node["meta"]["map"] = tmap_name 
-			node["meta"]["pointset"] = tmap_name
-			node["meta"]["node"] = "c"+str(c)+"_p"+str(num)
-			node["node"]["name"] = "c"+str(c)+"_p"+str(num)
-			node["node"]["pose"]["position"]["x"] = corridor_toponodes_utm["corridors"][c][p] 
-			node["node"]["pose"]["position"]["y"] = corridor_toponodes_utm["corridors"][c][p+1]
+				edge = copy.deepcopy(template_topoedge)
+				edge["action"] = "row_traversal"
+				edge["edge_id"] = "c"+str(c)+"_p"+str(num)+"-"+"c"+str(c)+"_p"+str(num-1)
+				edge["node"] = "c"+str(c)+"_p"+str(num-1)
+				node["node"]["edges"].append(edge)
 
+			if num == 3:
+				edge = copy.deepcopy(template_topoedge)
+				edge["action"] = "row_traversal"
+				edge["edge_id"] = "c"+str(c)+"_p"+str(num)+"-"+"c"+str(c)+"_p"+str(num-1)
+				edge["node"] = "c"+str(c)+"_p"+str(num-1)
+				node["node"]["edges"].append(edge)
+				
 			topomap["nodes"].append(node)
 			num = num+1
 	return topomap
