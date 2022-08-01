@@ -30,7 +30,7 @@ if os.path.isfile(image_filename[:-4]+'_rows_clusters_img.npy') and refresh==Fal
 else:
 	band1_mod = at.apply_binarisation(band1)
 	band1_mod = at.apply_morphological_operations(band1_mod)
-	band1_mod = at.row_detection(band1_mod,cluster_ratio_threshold)
+	band1_mod = at.row_classification(band1_mod,cluster_ratio_threshold)
 	np.save(image_filename[:-4]+'_rows_clusters_img',band1_mod)
 
 # Compute the canopy row lines

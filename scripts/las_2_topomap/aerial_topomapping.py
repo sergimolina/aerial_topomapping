@@ -59,9 +59,9 @@ def apply_morphological_operations(image):
 	print("-- Done --")
 	return(image)
 
-def row_detection(image,ratio_threshold):
+def row_classification(image,ratio_threshold):
 
-	print("-- Applying row detection --")
+	print("-- Applying row classification --")
 
 	# Divide binary image in clusters by means of connectivity rules
 	img_labels = measure.label(image,connectivity=2)
